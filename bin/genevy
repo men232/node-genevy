@@ -1,0 +1,272 @@
+#!/usr/bin/env node
+const path = require('node:path');
+const fs = require('node:fs');
+const fastGlob = require('fast-glob');
+const dotenv = require('dotenv');
+const micromatch = require('micromatch');
+const { Command } = require('commander');
+const { parseEnvUsage, groupVariables, commaSeparatedList, parseEnvDefaults } = require('../lib');
+const os = require('os');
+const _difference = require('lodash/difference');
+
+const cli = new Command();
+const isWindows = path.sep === '\\';
+
+cli
+	.name('genevy')
+	.description('CLI to generate .env file from source code.')
+	.version('1.0.0')
+	.argument('pattern', 'pattern')
+	.option('-o, --output <string>', 'generate output file')
+	.option('-i, --ignore <list>', 'ignore patterns (comma separated list)', commaSeparatedList, 'node_modules, .git, .svn, .hg')
+	.option('-m, --merge', 'merge result with output file', false)
+	.option('--ignoreMismatch <list>', 'ignore patterns when duplicate defaults usage detected (comma separated list)', commaSeparatedList, 'config/*.*')
+	.option('--ignoreMismatchVariables <list>', 'ignore specific variables when duplicate defaults usage detected (comma separated list)', commaSeparatedList, 'NODE_ENV')
+	.option('--groupPrefixDepth <int>', 'group variables by prefix depth', parseInt, 2)
+	.option('--groupList <list>', 'group variables by prefixes list', commaSeparatedList, '')
+	.action(main);
+
+cli.parse(process.argv);
+
+function main(filePattern, options) {
+	const cwd = process.cwd();
+
+	if (typeof options.ignore === 'string') {
+		options.ignore = commaSeparatedList(options.ignore);
+	}
+
+	if (typeof options.ignoreMismatch === 'string') {
+		options.ignoreMismatch = commaSeparatedList(options.ignoreMismatch);
+	}
+
+	if (typeof options.ignoreMismatchVariables === 'string') {
+		options.ignoreMismatchVariables = commaSeparatedList(options.ignoreMismatchVariables);
+	}
+
+	if (typeof options.groupList === 'string') {
+		options.groupList = commaSeparatedList(options.groupList);
+	}
+
+	options.ignore = options.ignore.map((dir) => `**/${dir}`);
+
+	options.ignoreMismatch = options.ignoreMismatch.map((dir) => `**/${dir}`);
+
+	filePattern = fixHomeDir(filePattern);
+
+	// Make a stuff
+	console.info(`👀 Searching files in "${filePattern}"`);
+
+	const globPattern = fixWindowsSlashes(
+		path.resolve(cwd, fixHomeDir(filePattern)),
+	);
+
+	const sourceFiles = fastGlob.sync(globPattern, {
+		ignore: options.ignore,
+		absolute: true,
+		dot: false,
+	});
+
+	console.info(`👀 Reading ${sourceFiles.length} files.`);
+
+	const variablesMap = new Map();
+	const variablesDefaults = new Map();
+
+	for (const filePath of sourceFiles) {
+		const fileContent = fs.readFileSync(filePath, 'utf-8');
+		const matchedVariables = parseEnvUsage(fileContent);
+		const matchedDefaults = parseEnvDefaults(fileContent);
+
+		for (const variableName of matchedVariables) {
+			variablesMap.set(variableName, true);
+		}
+
+		for (const [variableName, defaultValues] of matchedDefaults.entries()) {
+			const currentDefault = {
+				filePath,
+				value: defaultValues[defaultValues.length - 1]
+			};
+
+			checkMismatchDefaults({
+				currentDefault,
+				variableName,
+				defaultValues
+			});
+
+			variablesDefaults.set(variableName, currentDefault);
+		}
+	}
+
+	const variablesList = Array.from(variablesMap.keys());
+
+	if (!variablesList.length) {
+		console.info('😱 No environment variables found.');
+		return;
+	}
+
+	console.info(`\n🎉 Found ${variablesList.length} variables.`);
+
+	if (options.output) {
+		generateOutput();
+	} else {
+		console.log('');
+		printVariables(variablesList);
+		console.log('');
+	}
+
+	function checkMismatchDefaults({ currentDefault, variableName, defaultValues }) {
+		if (options.ignoreMismatchVariables.includes(variableName)) return;
+
+		// Warning duplicates & mismatch in same file
+		if (defaultValues.length > 1) {
+			console.warn('');
+			console.warn(`🚨 Detected mismatch default environment variable usage in same file.`);
+			console.warn(`  ${variableName} = "${defaultValues.join('" || "')}"`);
+			console.warn(`    ${currentDefault.filePath}`)
+			console.warn('');
+		}
+
+		// Warning duplicates & mismatch
+		if (variablesDefaults.has(variableName)) {
+			const existsDefault = variablesDefaults.get(variableName);
+
+			if (micromatch.isMatch(existsDefault.filePath, options.ignoreMismatch)) return;
+			if (micromatch.isMatch(currentDefault.filePath, options.ignoreMismatch)) return;
+
+			if (existsDefault.value !== currentDefault.value) {
+				console.warn('');
+				console.warn(`🚨 Detected mismatch default environment variable usage.`);
+				console.warn(`  ${variableName} = "${existsDefault.value}"\n    ${existsDefault.filePath}`);
+				console.warn('');
+				console.warn(`  ${variableName} = "${currentDefault.value}"\n    ${currentDefault.filePath}`);
+				console.warn('');
+			}
+		}
+	}
+
+	function generateOutput() {
+		const outputAbsolute = fixWindowsSlashes(
+			path.resolve(cwd, fixHomeDir(options.output)),
+		);
+
+		if (options.merge) {
+			if (fs.existsSync(outputAbsolute)) {
+				mergeWithDotEnv(outputAbsolute);
+			} else {
+				console.info('🚨 Skip merge because output file not exists.');
+			}
+		}
+
+		console.info(`🏗 Generate output file: "${options.output}"`);
+
+		let envContent = '';
+
+		const getDef = (variableName) => {
+			if (variablesDefaults.has(variableName)) {
+				return variablesDefaults.get(variableName).value;
+			}
+
+			return '';
+		};
+
+		const groups = groupVariables(variablesList, {
+			prefixDepth: options.groupPrefixDepth,
+			prefixGroups: options.groupList,
+		});
+
+		for (const group of groups) {
+			envContent +=
+				'# ' +
+				group.groupName +
+				'\n' +
+				group.variables.map((variableName) => `${variableName}=${getDef(variableName)}`).join('\n') + '\n\n';
+		}
+
+		envContent = envContent.slice(0, -1);
+
+		fs.writeFileSync(outputAbsolute, envContent, { encoding: 'utf-8' });
+	}
+
+	function mergeWithDotEnv(filePath) {
+		console.info(`\n👀 Merge with ${filePath}`);
+
+		const absolutePath = fixWindowsSlashes(
+			path.resolve(cwd, fixHomeDir(filePath)),
+		);
+
+		const dotEnv = dotenv.parse(fs.readFileSync(absolutePath));
+
+		const variablesAmount = variablesList.length;
+		const unknownVariables = [];
+
+		const newVariables = _difference(variablesList, Object.keys(dotEnv));
+
+		for (const [key, value] of Object.entries(dotEnv)) {
+			// Register default
+			variablesDefaults.set(key, {
+				filePath: absolutePath,
+				value
+			});
+
+			// Register in list
+			if (!variablesList.includes(key)) {
+				// unknownVariables.push(key);
+				// variablesList.push(key);
+			}
+		}
+
+		if (unknownVariables.length) {
+			console.info(`🤔  Added ${unknownVariables.length} variables from your .env file.`);
+			printVariables(unknownVariables);
+			console.log('');
+		}
+
+		if (newVariables.length) {
+			console.info(`✅  Added ${newVariables.length} variables to your .env file from source code.`);
+			printVariables(newVariables);
+		} else {
+			console.info(`🥳  All variables from source code persist in .env file.`);
+		}
+
+		console.log('');
+	}
+
+	function printVariables(list) {
+		const maxLen = Math.max(...list.map(v => v.length));
+
+		for (const variableName of list) {
+			const value = variablesDefaults.has(variableName)
+				? variablesDefaults.get(variableName).value
+				: '';
+
+			console.info(`  ${variableName.padEnd(maxLen + 2, ' ')} = "${wrapOverflow(value)}"`);
+		}
+	}
+}
+
+/**
+ * Using backslashes in globs is probably not okay, but not accepting
+ * backslashes as path separators on Windows is even more not okay.
+ * https://github.com/prettier/prettier/pull/6776#discussion_r380723717
+ * https://github.com/mrmlnc/fast-glob#how-to-write-patterns-on-windows
+ * @param {string} pattern
+ */
+function fixWindowsSlashes(pattern) {
+	return isWindows ? pattern.replace(/\\/g, '/') : pattern;
+}
+
+function wrapOverflow(value, maxLen = 128) {
+	if (typeof value !== 'string') return value;
+	if (value.length > maxLen) {
+		value = value.slice(0, maxLen) + '...<long text>';
+	}
+
+	return value;
+}
+
+function fixHomeDir(absolutePath) {
+	if (absolutePath[0] === '~') {
+		return path.join(os.homedir(), absolutePath.slice(1));
+	}
+
+	return absolutePath;
+}
