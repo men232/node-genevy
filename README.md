@@ -1,5 +1,6 @@
-## Intro
+![Example](https://user-images.githubusercontent.com/3619283/200929306-354ea572-18be-45ae-99a8-38618b796926.png)
 
+## Intro
 Genevy is a tool to generate `.env` file from your source code.
 
 ### Features
@@ -9,7 +10,7 @@ Genevy is a tool to generate `.env` file from your source code.
 * Place for your advertisement.
 
 ### Usage
-Most users use npx to run Genevy on the command line like this:
+Most users (me) use npx to run Genevy on the command line like this:
 ```bash
 # Run on project
 npx genevy "**/*{.js,.cjs,.ts}" -o .env --merge
@@ -45,8 +46,8 @@ Options that accept array values can be specified with a comma-delimited list.
 
 Example:
 ```bash
-# This example group GOOGLE_ variables in single section.
-npx genevy "**/*{.js,.cjs,.ts}" -o .env --merge --groupList "GOOGLE"
+# This example group GOOGLE_ & MONGODB_ variables in single section.
+npx genevy "**/*{.js,.cjs,.ts}" -o .env --merge --groupList "GOOGLE, MONGODB"
 ```
 ### --merge
 This option makes only appends new variables that are not defined in your `.env` file. 

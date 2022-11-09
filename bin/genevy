@@ -209,22 +209,22 @@ function main(filePattern, options) {
 
 			// Register in list
 			if (!variablesList.includes(key)) {
-				// unknownVariables.push(key);
-				// variablesList.push(key);
+				unknownVariables.push(key);
+				variablesList.push(key);
 			}
 		}
 
 		if (unknownVariables.length) {
-			console.info(`🤔  Added ${unknownVariables.length} variables from your .env file.`);
+			console.info(`🤔 Added ${unknownVariables.length} variables from your .env file.`);
 			printVariables(unknownVariables);
 			console.log('');
 		}
 
 		if (newVariables.length) {
-			console.info(`✅  Added ${newVariables.length} variables to your .env file from source code.`);
+			console.info(`✅ Added ${newVariables.length} variables to your .env file from source code.`);
 			printVariables(newVariables);
 		} else {
-			console.info(`🥳  All variables from source code persist in .env file.`);
+			console.info(`🥳 All variables from source code persist in .env file.`);
 		}
 
 		console.log('');
