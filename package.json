@@ -1,35 +1,39 @@
 {
-  "name": "genevy",
-  "version": "1.0.0",
-  "description": "",
-  "main": "lib/index.js",
-  "exports": {
-    ".": "./lib/index.js"
-  },
-  "bin": {
-    "genevy": "bin/genevy"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "files": [
-    "lib/**"
-  ],
-  "keywords": [
-    "dotenv",
-    "generate"
-  ],
-  "author": "Andrew L.",
-  "license": "MIT",
-  "dependencies": {
-    "commander": "^9.4.1",
-    "dotenv": "^16.0.3",
-    "fast-glob": "^3.2.12",
-    "lodash": "^4.17.21",
-    "micromatch": "^4.0.5"
-  },
-  "devDependencies": {
-    "eslint-config-prettier": "^8.3.0",
-    "prettier": "latest"
-  }
+	"name": "genevy",
+	"version": "1.0.1",
+	"description": "",
+	"main": "lib/index.js",
+	"exports": {
+		".": "./lib/index.js"
+	},
+	"bin": {
+		"genevy": "bin/genevy"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com:men232/node-genevy.git"
+	},
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"files": [
+		"lib/**"
+	],
+	"keywords": [
+		"dotenv",
+		"generate"
+	],
+	"author": "Andrew L.",
+	"license": "MIT",
+	"dependencies": {
+		"commander": "^9.4.1",
+		"dotenv": "^16.0.3",
+		"fast-glob": "^3.2.12",
+		"lodash": "^4.17.21",
+		"micromatch": "^4.0.5"
+	},
+	"devDependencies": {
+		"eslint-config-prettier": "^8.3.0",
+		"prettier": "latest"
+	}
 }
