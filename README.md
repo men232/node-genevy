@@ -1,4 +1,4 @@
-![Example](https://user-images.githubusercontent.com/3619283/200929306-354ea572-18be-45ae-99a8-38618b796926.png)
+![Example](https://user-images.githubusercontent.com/3619283/200930600-b335f869-6c98-4b47-bcf5-4871d1999ef9.png)
 
 ## Intro
 Genevy is a tool to generate `.env` file from your source code.
