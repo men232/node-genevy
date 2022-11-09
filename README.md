@@ -2,10 +2,11 @@
 
 Genevy is a tool to generate `.env` file from your source code.
 
-### Install
-```bash
-npm i genevy -D
-```
+### Features
+* Support for multiple usage syntax of `process.env`
+* Support of default values extracting from code.
+* Probably fast, did not benchmark.
+* Place for your advertisement.
 
 ### Usage
 Most users use npx to run Genevy on the command line like this:
