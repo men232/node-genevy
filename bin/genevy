@@ -11,11 +11,12 @@ const _difference = require('lodash/difference');
 
 const cli = new Command();
 const isWindows = path.sep === '\\';
+const package = require('../package.json');
 
 cli
 	.name('genevy')
 	.description('CLI to generate .env file from source code.')
-	.version('1.0.0')
+	.version(package.version)
 	.argument('pattern', 'pattern')
 	.option('-o, --output <string>', 'generate output file')
 	.option('-i, --ignore <list>', 'ignore patterns (comma separated list)', commaSeparatedList, 'node_modules, .git, .svn, .hg')
